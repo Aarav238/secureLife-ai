@@ -36,7 +36,7 @@ The system follows a **monolithic Next.js architecture** — a deliberate choice
 
 ### 2.3 What This Architecture Does NOT Include (and Why)
 
-- **Authentication/Authorization** — Not needed for MVP. Single-tenant broker tool. Would add Supabase Auth or NextAuth in production.
+- **Role-Based Access Control** — Current auth is single-role (all authenticated brokers see all data). Production would add role-based permissions and per-user data isolation via Row Level Security.
 - **WebSocket/Real-time** — Chat uses request-response pattern. Real-time dashboard updates would use Supabase Realtime subscriptions in production.
 - **Queue/Background Jobs** — Document processing is synchronous in MVP. Production would use a job queue (BullMQ, Inngest, or Supabase Edge Functions) for long-running extractions.
 - **Rate Limiting** — Not implemented. Production would add rate limiting on chat endpoints to control LLM costs.
@@ -220,26 +220,27 @@ Server:
 
 ## 7. Security Considerations (Production Roadmap)
 
-### 7.1 Current State (MVP)
+### 7.1 Current State
 
-- **No authentication** — The dashboard and all API routes are publicly accessible. This is a deliberate MVP trade-off; the system assumes a single broker using it locally or on a private network.
+- **Supabase Auth (email/password)** — Broker accounts are managed via Supabase Auth. Login/signup at `/login`, session managed with `@supabase/ssr` cookie-based tokens.
+- **Route protection via `proxy.ts`** — Next.js 16 proxy (replaces middleware) guards all `/dashboard/*` routes (redirects to `/login`) and sensitive API routes (`/api/leads/*`, `/api/documents/*`, `/api/analysis/*`) with 401 responses for unauthenticated requests.
+- **Chat stays public** — The `/chat` page and `/api/chat` endpoints are intentionally open since they are the lead-facing interface.
+- **Auth-aware UI** — Landing page shows "Broker Login" or "Dashboard" + avatar based on auth state. Dashboard sidebar displays the logged-in user's email and a logout button.
 - **API keys server-side only** — OpenAI API keys are stored in `.env.local` and never sent to the client. All LLM calls happen in Next.js API routes.
-- **Chat is public** — The `/chat` page is intentionally open (it's the lead-facing interface). The dashboard (`/dashboard/*`) is where auth would be needed.
 
-### 7.2 Production Auth Plan
+### 7.2 Production Auth Roadmap
 
-**Phase 1 — Simple password gate (immediate next step):**
-- Next.js middleware checks for an auth cookie on all `/dashboard/*` and `/api/*` routes (excluding `/api/chat`)
-- If missing, redirect to `/login` with a single hardcoded broker password
-- Cookie set with `httpOnly`, `secure`, `sameSite: strict`, 24-hour expiry
-- Takes ~30 minutes to implement. No database changes needed.
+**Phase 1 — Supabase Auth (implemented):**
+- Email/password authentication via Supabase Auth
+- Cookie-based session management with `@supabase/ssr`
+- `proxy.ts` route guard protecting dashboard and sensitive APIs
+- Auth-aware frontend components (conditional login/logout, user avatar)
 
-**Phase 2 — Multi-user auth (production):**
-- Supabase Auth with email/password for broker accounts
+**Phase 2 — Role-based access & data isolation (production):**
 - Role-based access: `admin` (full access), `broker` (assigned leads only), `viewer` (read-only)
-- Row Level Security (RLS) policies in Supabase to ensure brokers only see their assigned leads
+- Row Level Security (RLS) policies in Supabase so brokers only see leads assigned to them
+- Data shared on the basis of users — leads, documents, and analyses scoped to the assigned broker
 - Magic link or OTP login for leads to view their own status
-- Session management via Supabase Auth JWT tokens
 
 **Phase 3 — Enterprise auth:**
 - SSO integration (SAML/OIDC) for enterprise broker firms
