@@ -3,6 +3,7 @@
 ## End-to-End Sequence Diagram
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e0e7ff', 'primaryTextColor': '#111827', 'primaryBorderColor': '#4f46e5', 'lineColor': '#6366f1', 'actorTextColor': '#111827', 'actorBkg': '#e0e7ff', 'actorBorder': '#4f46e5', 'signalColor': '#111827', 'signalTextColor': '#111827', 'labelTextColor': '#111827', 'noteBkgColor': '#fef3c7', 'noteTextColor': '#111827', 'activationBkgColor': '#d1fae5', 'activationBorderColor': '#059669'}}}%%
 sequenceDiagram
     actor User as 👤 Prospective Client
     participant Chat as Chat UI<br/>(/chat)
@@ -118,6 +119,7 @@ sequenceDiagram
 ## Lead Creation Decision Flow
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e0e7ff', 'primaryTextColor': '#111827', 'primaryBorderColor': '#4f46e5', 'lineColor': '#6366f1', 'secondaryColor': '#d1fae5', 'tertiaryColor': '#fef3c7', 'nodeTextColor': '#111827'}}}%%
 flowchart TD
     A["🔵 User sends a chat message"] --> B{"Does the request<br/>include a leadId?"}
 
@@ -149,18 +151,19 @@ flowchart TD
     Q --> R["Clear server memory<br/>for this sessionId"]
     R --> O
 
-    style A fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px
-    style F fill:#d1fae5,stroke:#059669,stroke-width:2px
-    style P fill:#fef3c7,stroke:#d97706,stroke-width:2px
-    style M fill:#fef3c7,stroke:#d97706,stroke-width:2px
-    style O fill:#bbf7d0,stroke:#22c55e,stroke-width:2px
-    style J fill:#f1f5f9,stroke:#94a3b8,stroke-width:2px
-    style I fill:#f1f5f9,stroke:#94a3b8,stroke-width:2px
+    style A fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#111827
+    style F fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#111827
+    style P fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    style M fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    style O fill:#bbf7d0,stroke:#22c55e,stroke-width:2px,color:#111827
+    style J fill:#f1f5f9,stroke:#94a3b8,stroke-width:2px,color:#111827
+    style I fill:#f1f5f9,stroke:#94a3b8,stroke-width:2px,color:#111827
 ```
 
 ## Document Extraction Pipeline
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e0e7ff', 'primaryTextColor': '#111827', 'primaryBorderColor': '#4f46e5', 'lineColor': '#6366f1', 'secondaryColor': '#d1fae5', 'tertiaryColor': '#fef3c7', 'nodeTextColor': '#111827'}}}%%
 flowchart TD
     A["📄 Broker uploads PDF<br/>via Documents tab"] --> B["Save file to<br/>/uploads/{timestamp}-{filename}.pdf"]
     B --> C["INSERT Document record<br/>{ leadId, fileName, fileUrl,<br/>processingStatus: 'pending' }"]
@@ -195,12 +198,12 @@ flowchart TD
 
     Q --> R["Return extracted<br/>document to frontend"]
 
-    style A fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px
-    style H fill:#fecaca,stroke:#ef4444,stroke-width:2px
-    style I fill:#d1fae5,stroke:#059669,stroke-width:2px
-    style M fill:#fef3c7,stroke:#d97706,stroke-width:2px
-    style P fill:#d1fae5,stroke:#059669,stroke-width:2px
-    style R fill:#bbf7d0,stroke:#22c55e,stroke-width:2px
+    style A fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#111827
+    style H fill:#fecaca,stroke:#ef4444,stroke-width:2px,color:#111827
+    style I fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#111827
+    style M fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    style P fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#111827
+    style R fill:#bbf7d0,stroke:#22c55e,stroke-width:2px,color:#111827
 ```
 
 ## Timeline — Typical Lead Journey

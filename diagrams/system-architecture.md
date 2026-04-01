@@ -86,12 +86,12 @@ graph TB
     PDFParser -->|"fetch PDF"| SupaStore
 
     %% Styling
-    classDef frontend fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#1e1b4b
-    classDef authStyle fill:#fce7f3,stroke:#ec4899,stroke-width:2px,color:#831843
-    classDef api fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
-    classDef ai fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
-    classDef external fill:#e0f2fe,stroke:#0ea5e9,stroke-width:2px,color:#0c4a6e
-    classDef util fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1e293b
+    classDef frontend fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#111827
+    classDef authStyle fill:#fce7f3,stroke:#ec4899,stroke-width:2px,color:#111827
+    classDef api fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+    classDef ai fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#111827
+    classDef external fill:#e0f2fe,stroke:#0ea5e9,stroke-width:2px,color:#111827
+    classDef util fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#111827
 
     class LP,CH,LG,DB,LD,LT,DT frontend
     class Proxy,SupaAuth authStyle
@@ -131,9 +131,9 @@ flowchart LR
     Analyze --> Report
     Lead & PolicyData & Report --> Broker
 
-    classDef input fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#1e1b4b
-    classDef process fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
-    classDef output fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef input fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#111827
+    classDef process fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#111827
+    classDef output fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
 
     class User,Broker,PDF input
     class Qualify,Extract,Analyze process

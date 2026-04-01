@@ -3,6 +3,7 @@
 ## Database Schema
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e0e7ff', 'primaryTextColor': '#111827', 'primaryBorderColor': '#4f46e5', 'lineColor': '#6366f1', 'secondaryColor': '#f1f5f9', 'tertiaryColor': '#fef3c7', 'noteBkgColor': '#fef3c7', 'noteTextColor': '#111827'}}}%%
 erDiagram
     Lead ||--o{ Message : "has many"
     Lead ||--o{ Document : "has many"
@@ -83,6 +84,7 @@ erDiagram
 ## Lead Status State Machine
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e0e7ff', 'primaryTextColor': '#111827', 'primaryBorderColor': '#4f46e5', 'lineColor': '#6366f1', 'secondaryColor': '#d1fae5', 'tertiaryColor': '#fef3c7', 'noteBkgColor': '#fef3c7', 'noteTextColor': '#111827', 'labelTextColor': '#111827'}}}%%
 stateDiagram-v2
     [*] --> NEW : Lead created from chatbot<br/>(substantive data extracted)
 
@@ -118,8 +120,9 @@ stateDiagram-v2
 ## Document Processing States
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#e0e7ff', 'primaryTextColor': '#111827', 'primaryBorderColor': '#4f46e5', 'lineColor': '#6366f1', 'secondaryColor': '#d1fae5', 'tertiaryColor': '#fef3c7', 'noteBkgColor': '#fef3c7', 'noteTextColor': '#111827', 'labelTextColor': '#111827'}}}%%
 stateDiagram-v2
-    [*] --> pending : PDF uploaded to /uploads/<br/>Document record created
+    [*] --> pending : PDF uploaded to Supabase Storage<br/>Document record created
 
     pending --> processing : Broker clicks<br/>"Extract Data with AI"
     processing --> completed : GPT-4.1 returns valid JSON<br/>Fields stored in Document record
