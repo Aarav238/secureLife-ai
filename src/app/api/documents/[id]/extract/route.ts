@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromPDF } from "@/lib/pdf/parser";
 import { extractDocumentData } from "@/lib/ai/extractor";
-import { readFile } from "fs/promises";
-import { join } from "path";
 import type { DocumentType } from "@prisma/client";
 
 export async function POST(
@@ -27,9 +25,14 @@ export async function POST(
       data: { processingStatus: "processing" },
     });
 
-    // Read file and extract text
-    const filePath = join(process.cwd(), document.fileUrl);
-    const buffer = await readFile(filePath);
+    // Download file from Supabase Storage (or any URL)
+    const response = await fetch(document.fileUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     const rawText = await extractTextFromPDF(buffer);
 
     if (!rawText || rawText.trim().length < 50) {
