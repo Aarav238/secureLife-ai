@@ -21,7 +21,7 @@ export async function GET() {
       orderBy: { updatedAt: "desc" },
     });
 
-    const sessions = leads.map((lead) => ({
+    const sessions = leads.map((lead: typeof leads[number]) => ({
       leadId: lead.id,
       name: lead.name,
       primaryInterest: lead.primaryInterest,
