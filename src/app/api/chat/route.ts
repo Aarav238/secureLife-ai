@@ -1,0 +1,154 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getChatResponse } from "@/lib/ai/chatbot";
+import type { ExtractedLeadData } from "@/types";
+import type { LeadStatus } from "@prisma/client";
+
+// Track pre-lead conversations in memory (cleared on server restart — fine for MVP)
+const pendingConversations = new Map<
+  string,
+  Array<{ role: "user" | "assistant"; content: string }>
+>();
+
+function hasSubstantiveData(data: Record<string, unknown> | null): boolean {
+  if (!data) return false;
+  // Only create a lead when we have at least a name OR a specific interest
+  return !!(data.name || data.primaryInterest || data.email || data.phone);
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { leadId, message, sessionId } = await req.json();
+
+    // ── Existing lead: normal flow ──
+    if (leadId) {
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+        include: { conversations: { orderBy: { createdAt: "asc" } } },
+      });
+      if (!lead) {
+        return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+      }
+
+      const conversationHistory = lead.conversations.map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+
+      const { reply, extractedData } = await getChatResponse(
+        conversationHistory,
+        message
+      );
+
+      await prisma.message.createMany({
+        data: [
+          { leadId: lead.id, role: "user", content: message },
+          {
+            leadId: lead.id,
+            role: "assistant",
+            content: reply,
+            metadata: extractedData
+              ? JSON.parse(JSON.stringify(extractedData))
+              : undefined,
+          },
+        ],
+      });
+
+      if (extractedData) {
+        const updateData = buildUpdateData(extractedData);
+        if (Object.keys(updateData).length > 0) {
+          await prisma.lead.update({
+            where: { id: lead.id },
+            data: updateData,
+          });
+        }
+      }
+
+      return NextResponse.json({
+        leadId: lead.id,
+        message: reply,
+        extractedData,
+      });
+    }
+
+    // ── No lead yet: hold conversation in memory until substantive data arrives ──
+    const sid = sessionId || "default";
+    const history = pendingConversations.get(sid) || [];
+
+    const { reply, extractedData } = await getChatResponse(history, message);
+
+    // Store messages in memory
+    history.push({ role: "user", content: message });
+    history.push({ role: "assistant", content: reply });
+    pendingConversations.set(sid, history);
+
+    // Check if we now have enough data to create a lead
+    if (hasSubstantiveData(extractedData as Record<string, unknown> | null)) {
+      const updateData = buildUpdateData(extractedData!);
+
+      const lead = await prisma.lead.create({
+        data: {
+          source: "chatbot",
+          status: (updateData.status as LeadStatus) || "QUALIFYING",
+          ...updateData,
+        },
+      });
+
+      // Persist all pending messages to the DB
+      await prisma.message.createMany({
+        data: history.map((msg) => ({
+          leadId: lead.id,
+          role: msg.role,
+          content: msg.content,
+        })),
+      });
+
+      // Clean up memory
+      pendingConversations.delete(sid);
+
+      return NextResponse.json({
+        leadId: lead.id,
+        message: reply,
+        extractedData,
+      });
+    }
+
+    // Not enough data yet — respond without creating a lead
+    return NextResponse.json({
+      leadId: null,
+      message: reply,
+      extractedData,
+    });
+  } catch (error) {
+    console.error("Chat error:", error);
+    return NextResponse.json(
+      { error: "Failed to process message" },
+      { status: 500 }
+    );
+  }
+}
+
+function buildUpdateData(
+  extractedData: ExtractedLeadData
+): Record<string, unknown> {
+  const updateData: Record<string, unknown> = {};
+  if (extractedData.name) updateData.name = extractedData.name;
+  if (extractedData.email) updateData.email = extractedData.email;
+  if (extractedData.phone) updateData.phone = extractedData.phone;
+  if (extractedData.age) updateData.age = extractedData.age;
+  if (extractedData.city) updateData.city = extractedData.city;
+  if (extractedData.occupation)
+    updateData.occupation = extractedData.occupation;
+  if (extractedData.primaryInterest)
+    updateData.primaryInterest = extractedData.primaryInterest;
+  if (extractedData.existingPolicies != null)
+    updateData.existingPolicies = extractedData.existingPolicies;
+  if (extractedData.monthlyBudget != null)
+    updateData.monthlyBudget = extractedData.monthlyBudget;
+  if (extractedData.urgency) updateData.urgency = extractedData.urgency;
+  if (extractedData.qualificationScore != null)
+    updateData.qualificationScore = extractedData.qualificationScore;
+  if (extractedData.statusUpdate)
+    updateData.status = extractedData.statusUpdate as LeadStatus;
+  return updateData;
+}

@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SecureLife AI — Insurance Lead Management System
 
-## Getting Started
+AI-powered lead management platform for insurance brokers. Qualifies leads through conversational AI, extracts policy data from documents, and generates comprehensive coverage analysis.
 
-First, run the development server:
+## Features
+
+- **AI Chatbot** — Conversational lead qualification using GPT-4.1. Collects name, contact, insurance needs, and budget in 2-3 natural exchanges
+- **Pipeline Dashboard** — Kanban board tracking leads through: New → Qualifying → Qualified → Docs Pending → Docs Uploaded → Analysis Ready → Reviewed → Won/Lost
+- **Document Intelligence** — Upload insurance PDFs, extract structured data (policy number, provider, coverage, premium, exclusions, benefits) via AI
+- **Smart Analysis** — AI-generated coverage gap analysis, potential savings, risk flags, and prioritized recommendations with an overall insurance health score
+- **Chat History** — Persistent conversations with session switching, stored in database
+- **Markdown Rendering** — AI responses rendered with proper formatting, code highlighting, tables
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router) + TypeScript
+- **Database:** Supabase (PostgreSQL) via Prisma v7
+- **AI:** OpenAI GPT-4.1
+- **PDF Parsing:** pdf-parse
+- **UI:** Tailwind CSS v4 + shadcn/ui
+- **Fonts:** Plus Jakarta Sans + DM Sans + JetBrains Mono
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Supabase project (free tier)
+- OpenAI API key
+
+### Installation
+
+```bash
+git clone <repo-url>
+cd securelife-ai
+npm install
+```
+
+### Environment Variables
+
+Create `.env.local`:
+
+```env
+DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
+OPENAI_API_KEY="sk-proj-..."
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+Use the **Session Pooler** connection string from Supabase (Settings → Database → Connection string).
+
+### Database Setup
+
+```bash
+npx prisma db push
+npx prisma generate
+```
+
+### Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage Flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Visit `/chat` → Talk to the AI advisor about your insurance needs
+2. The AI collects your info and creates a lead automatically
+3. Visit `/dashboard` → See the lead in the pipeline
+4. Click the lead → Upload policy PDFs in the Documents tab
+5. Click "Extract Data with AI" to parse the document
+6. Go to Analysis tab → Click "Generate Analysis" for coverage gaps, savings, and recommendations
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed system design, database schema, AI pipeline, and API documentation.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Deploy to Vercel:
 
-## Deploy on Vercel
+```bash
+npm run build
+vercel --prod
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Set environment variables in Vercel dashboard.

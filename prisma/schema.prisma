@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LeadStatus {
+  NEW
+  QUALIFYING
+  QUALIFIED
+  DOCUMENTS_PENDING
+  DOCUMENTS_UPLOADED
+  ANALYSIS_READY
+  REVIEWED
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum DocumentType {
+  HEALTH_INSURANCE
+  LIFE_INSURANCE
+  VEHICLE_INSURANCE
+  HOME_INSURANCE
+  TRAVEL_INSURANCE
+  OTHER
+}
+
+model Lead {
+  id                String     @id @default(cuid())
+
+  // Contact Info
+  name              String?
+  email             String?
+  phone             String?
+  age               Int?
+  city              String?
+  occupation        String?
+
+  // Qualification
+  status            LeadStatus @default(NEW)
+  qualificationScore Int?
+  monthlyBudget     Float?
+  existingPolicies  Int?
+  primaryInterest   String?
+  urgency           String?
+
+  // Metadata
+  source            String?
+  assignedBroker    String?
+  notes             String?
+
+  // Relations
+  conversations     Message[]
+  documents         Document[]
+  analysis          Analysis?
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id               String        @id @default(cuid())
+  leadId           String
+  lead             Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  fileName         String
+  fileUrl          String
+  fileSize         Int?
+  mimeType         String?
+
+  rawText          String?
+  extractedData    Json?
+  documentType     DocumentType?
+
+  policyNumber     String?
+  provider         String?
+  policyType       String?
+  coverageAmount   Float?
+  premiumAmount    Float?
+  premiumFrequency String?
+  startDate        DateTime?
+  endDate          DateTime?
+  renewalDate      DateTime?
+  exclusions       Json?
+  benefits         Json?
+
+  processingStatus String        @default("pending")
+  processingError  String?
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Analysis {
+  id               String   @id @default(cuid())
+  leadId           String   @unique
+  lead             Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  summary          String
+  coverageGaps     Json
+  potentialSavings Json
+  riskFlags        Json
+  recommendations  Json
+  overallScore     Int?
+
+  rawResponse      String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
