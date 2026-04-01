@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const navItems = [
   {
@@ -68,6 +70,14 @@ function isActive(pathname: string, href: string, exact: boolean) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  }, []);
 
   return (
     <aside className="w-64 bg-slate-950 text-white flex flex-col min-h-screen border-r border-slate-800/60">
@@ -155,25 +165,38 @@ export function Sidebar() {
         <div className="border-t border-slate-800/60" />
       </div>
 
-      {/* Bottom section */}
+      {/* Bottom section — user info + logout */}
       <div className="p-4">
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-xs font-bold tracking-wide text-white ring-2 ring-slate-800 flex-shrink-0">
-            SL
+            {userEmail ? userEmail.charAt(0).toUpperCase() : "B"}
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              Broker Portal
-            </p>
-            <p className="text-[11px] text-slate-500 truncate">
-              SecureLife Insurance
-            </p>
+          <div className="min-w-0 flex-1">
+            {userEmail ? (
+              <>
+                <p className="text-sm font-semibold text-white truncate">
+                  {userEmail.split("@")[0]}
+                </p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {userEmail}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-white truncate">
+                  Broker Portal
+                </p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  SecureLife Insurance
+                </p>
+              </>
+            )}
           </div>
-          <form action="/api/auth/logout" method="POST" className="ml-auto">
+          <form action="/api/auth/logout" method="POST" className="shrink-0">
             <button
               type="submit"
               title="Sign out"
-              className="text-slate-600 hover:text-red-400 transition-colors cursor-pointer"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800/80 transition-all cursor-pointer"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

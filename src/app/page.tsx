@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthNavLinks } from "@/components/AuthNavLinks";
 
 export default function Home() {
   return (
@@ -45,20 +46,7 @@ export default function Home() {
             </div>
             <span className="text-lg font-semibold tracking-tight">SecureLife AI</span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/chat"
-              className="hidden sm:inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white"
-            >
-              AI Chat
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25"
-            >
-              Broker Login
-            </Link>
-          </div>
+          <AuthNavLinks />
         </div>
       </nav>
 
