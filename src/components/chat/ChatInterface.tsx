@@ -29,25 +29,36 @@ const QUICK_SUGGESTIONS = [
 
 const STORAGE_KEY = "securelife-chat";
 
-function loadPersistedState(): { leadId: string | null; sessionId: string } {
+interface PersistedChat {
+  leadId: string | null;
+  sessionId: string;
+  pendingHistory: Array<{ role: "user" | "assistant"; content: string }> | null;
+}
+
+function loadPersistedState(): PersistedChat {
   if (typeof window === "undefined")
-    return { leadId: null, sessionId: `session-${Date.now()}` };
+    return { leadId: null, sessionId: `session-${Date.now()}`, pendingHistory: null };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.leadId || parsed.sessionId) return parsed;
+      if (parsed.leadId || parsed.sessionId) return {
+        leadId: parsed.leadId || null,
+        sessionId: parsed.sessionId || `session-${Date.now()}`,
+        pendingHistory: parsed.pendingHistory || null,
+      };
     }
   } catch {}
   return {
     leadId: null,
     sessionId: `session-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    pendingHistory: null,
   };
 }
 
-function persistState(leadId: string | null, sessionId: string) {
+function persistState(leadId: string | null, sessionId: string, pendingHistory: Array<{ role: "user" | "assistant"; content: string }> | null) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ leadId, sessionId }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ leadId, sessionId, pendingHistory }));
   } catch {}
 }
 
@@ -57,6 +68,7 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState("");
+  const [pendingHistory, setPendingHistory] = useState<Array<{ role: "user" | "assistant"; content: string }> | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -69,6 +81,7 @@ export function ChatInterface() {
     const persisted = loadPersistedState();
     setLeadId(persisted.leadId);
     setSessionId(persisted.sessionId);
+    setPendingHistory(persisted.pendingHistory || null);
 
     if (persisted.leadId) {
       fetch(`/api/chat/${persisted.leadId}`)
@@ -88,6 +101,16 @@ export function ChatInterface() {
         .catch(console.error)
         .finally(() => setInitialized(true));
     } else {
+      if (persisted.pendingHistory && persisted.pendingHistory.length > 0) {
+        setMessages(
+          persisted.pendingHistory.map((m, i) => ({
+            id: `pending-${i}`,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            createdAt: new Date(),
+          }))
+        );
+      }
       setInitialized(true);
     }
   }, []);
@@ -106,10 +129,10 @@ export function ChatInterface() {
     loadSessions();
   }, [loadSessions]);
 
-  // ── Persist leadId changes ──
+  // ── Persist state changes ──
   useEffect(() => {
-    if (sessionId) persistState(leadId, sessionId);
-  }, [leadId, sessionId]);
+    if (sessionId) persistState(leadId, sessionId, pendingHistory);
+  }, [leadId, sessionId, pendingHistory]);
 
   // ── Scroll to bottom ──
   const scrollToBottom = useCallback(() => {
@@ -144,7 +167,8 @@ export function ChatInterface() {
           }))
         );
         setLeadId(targetLeadId);
-        persistState(targetLeadId, sessionId);
+        setPendingHistory(null);
+        persistState(targetLeadId, sessionId, null);
         setHistoryOpen(false);
       }
     } catch (err) {
@@ -158,7 +182,8 @@ export function ChatInterface() {
     setMessages([]);
     setLeadId(null);
     setSessionId(newSessionId);
-    persistState(null, newSessionId);
+    setPendingHistory(null);
+    persistState(null, newSessionId, null);
     setHistoryOpen(false);
     loadSessions();
   };
@@ -179,18 +204,38 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      let currentLeadId = leadId;
+      let res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId, message: trimmed, sessionId }),
+        body: JSON.stringify({
+          leadId: currentLeadId,
+          message: trimmed,
+          pendingHistory: currentLeadId ? undefined : (pendingHistory ?? undefined),
+        }),
       });
+
+      if (res.status === 404 && currentLeadId) {
+        currentLeadId = null;
+        setLeadId(null);
+        setPendingHistory(null);
+        persistState(null, sessionId, null);
+        res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leadId: null, message: trimmed }),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      if (!leadId && data.leadId) {
+      if (!currentLeadId && data.leadId) {
         setLeadId(data.leadId);
+        setPendingHistory(null);
         loadSessions();
+      } else if (!data.leadId && data.pendingHistory) {
+        setPendingHistory(data.pendingHistory);
       }
 
       const assistantMsg: Message = {

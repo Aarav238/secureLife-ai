@@ -5,19 +5,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const REQUIRED_FIELDS = [
-  "name",
-  "city",
-  "age",
-  "occupation",
-  "primaryInterest",
-  "existingPolicies",
-  "monthlyBudget",
-  "email",
-  "phone",
-  "urgency",
-] as const;
-
 const SYSTEM_PROMPT = `You are a warm, sharp insurance advisor at SecureLife Insurance Brokers. You talk like a helpful friend who happens to know everything about insurance — not like a corporate bot or a form.
 
 YOUR PERSONALITY:
@@ -83,29 +70,28 @@ RULES:
 - Keep responses concise — 3-5 sentences max, not paragraphs
 - Be genuinely helpful even if they're just exploring
 
-After EACH of your messages, output a JSON block with any data you've extracted so far:
+RESPONSE FORMAT:
+You MUST respond with a JSON object containing exactly two keys:
+1. "reply" — your conversational message to the user (string)
+2. "extractedData" — an object with any lead data collected so far from the ENTIRE conversation
 
-<extracted_data>
+For extractedData, include ALL fields you know from the conversation so far (not just this turn). Use null for unknown fields:
 {
-  "name": "...",
-  "email": "...",
-  "phone": "...",
-  "age": null,
-  "city": "...",
-  "occupation": "...",
-  "primaryInterest": "Health Insurance|Life Insurance|Vehicle Insurance|Home Insurance|Travel Insurance",
-  "existingPolicies": null,
-  "monthlyBudget": null,
-  "urgency": "low|medium|high",
-  "qualificationScore": 0-100,
-  "statusUpdate": "NEW|QUALIFYING|QUALIFIED|DOCUMENTS_PENDING",
-  "missingFields": ["list", "of", "fields", "still", "needed"]
+  "name": string | null,
+  "email": string | null,
+  "phone": string | null,
+  "age": number | null,
+  "city": string | null,
+  "occupation": string | null,
+  "primaryInterest": "Health Insurance" | "Life Insurance" | "Vehicle Insurance" | "Home Insurance" | "Travel Insurance" | null,
+  "existingPolicies": number | null,
+  "monthlyBudget": number | null,
+  "urgency": "low" | "medium" | "high" | null,
+  "qualificationScore": number (0-100) | null,
+  "statusUpdate": "NEW" | "QUALIFYING" | "QUALIFIED" | "DOCUMENTS_PENDING" | null
 }
-</extracted_data>
 
-Only include fields that were mentioned or can be clearly inferred. Set qualificationScore based on: budget clarity (+20), specific need (+20), existing policies to review (+20), contact info provided (+20), urgency (+20). The "missingFields" array should list which of the 10 required fields are still unknown — use this to track your progress and decide what to ask next.
-
-CRITICAL: The <extracted_data> block is for INTERNAL processing only. NEVER mention it to the user. NEVER say things like "Here's the extracted info" or "Here's what I've gathered" followed by the JSON. Just end your conversational message naturally, then put the <extracted_data> block silently at the very end. The user must never know about this data extraction.`;
+Score calculation: budget clarity (+20), specific need (+20), existing policies to review (+20), contact info provided (+20), urgency (+20).`;
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -124,6 +110,19 @@ export interface LeadState {
   monthlyBudget?: number | null;
   urgency?: string | null;
 }
+
+const REQUIRED_FIELDS = [
+  "name",
+  "city",
+  "age",
+  "occupation",
+  "primaryInterest",
+  "existingPolicies",
+  "monthlyBudget",
+  "email",
+  "phone",
+  "urgency",
+] as const;
 
 function buildLeadContext(leadState: LeadState): string {
   const filled: string[] = [];
@@ -169,39 +168,41 @@ export async function getChatResponse(
     model: "gpt-4.1",
     max_tokens: 1024,
     messages,
+    response_format: { type: "json_object" },
   });
 
-  const fullResponse = response.choices[0]?.message?.content || "";
-
-  const extractedData = parseExtractedData(fullResponse);
-
-  // Strip the extracted_data block and any lead-in text referencing it
-  const reply = fullResponse
-    .replace(/<extracted_data>[\s\S]*?<\/extracted_data>/g, "")
-    .replace(/\n*(Here'?s?\s*(the|my|your)?\s*(extracted|gathered|collected|noted)\s*(info|data|information|details)\s*:?\s*)/gi, "")
-    .replace(/\n*```json[\s\S]*?```\s*/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  return { reply, extractedData };
-}
-
-function parseExtractedData(text: string): ExtractedLeadData | null {
-  const match = text.match(/<extracted_data>([\s\S]*?)<\/extracted_data>/);
-  if (!match) return null;
+  const fullResponse = response.choices[0]?.message?.content || "{}";
 
   try {
-    const data = JSON.parse(match[1].trim());
-    const cleaned: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== null && value !== undefined && value !== "") {
-        cleaned[key] = value;
-      }
-    }
-    return Object.keys(cleaned).length > 0
-      ? (cleaned as ExtractedLeadData)
-      : null;
+    const parsed = JSON.parse(fullResponse);
+    const reply = typeof parsed.reply === "string"
+      ? parsed.reply.trim()
+      : "I apologize, could you repeat that?";
+
+    const extractedData = parseExtractedData(parsed.extractedData);
+    return { reply, extractedData };
   } catch {
-    return null;
+    return {
+      reply: fullResponse
+        .replace(/<extracted_data>[\s\S]*?<\/extracted_data>/g, "")
+        .replace(/```json[\s\S]*?```/g, "")
+        .trim() || "I apologize, could you repeat that?",
+      extractedData: null,
+    };
   }
+}
+
+function parseExtractedData(data: unknown): ExtractedLeadData | null {
+  if (!data || typeof data !== "object") return null;
+
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (key === "missingFields") continue;
+    if (value !== null && value !== undefined && value !== "") {
+      cleaned[key] = value;
+    }
+  }
+  return Object.keys(cleaned).length > 0
+    ? (cleaned as ExtractedLeadData)
+    : null;
 }

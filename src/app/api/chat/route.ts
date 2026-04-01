@@ -5,21 +5,14 @@ import type { LeadState } from "@/lib/ai/chatbot";
 import type { ExtractedLeadData } from "@/types";
 import type { LeadStatus } from "@prisma/client";
 
-// Track pre-lead conversations in memory (cleared on server restart — fine for MVP)
-const pendingConversations = new Map<
-  string,
-  Array<{ role: "user" | "assistant"; content: string }>
->();
-
 function hasSubstantiveData(data: Record<string, unknown> | null): boolean {
   if (!data) return false;
-  // Only create a lead when we have at least a name OR a specific interest
   return !!(data.name || data.primaryInterest || data.email || data.phone);
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { leadId, message, sessionId } = await req.json();
+    const { leadId, message, pendingHistory } = await req.json();
 
     // ── Existing lead: normal flow ──
     if (leadId) {
@@ -86,18 +79,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── No lead yet: hold conversation in memory until substantive data arrives ──
-    const sid = sessionId || "default";
-    const history = pendingConversations.get(sid) || [];
+    // ── No lead yet: stateless — frontend sends pending history ──
+    const history: Array<{ role: "user" | "assistant"; content: string }> =
+      Array.isArray(pendingHistory) ? pendingHistory : [];
 
     const { reply, extractedData } = await getChatResponse(history, message);
 
-    // Store messages in memory
-    history.push({ role: "user", content: message });
-    history.push({ role: "assistant", content: reply });
-    pendingConversations.set(sid, history);
+    const updatedHistory = [
+      ...history,
+      { role: "user" as const, content: message },
+      { role: "assistant" as const, content: reply },
+    ];
 
-    // Check if we now have enough data to create a lead
     if (hasSubstantiveData(extractedData as Record<string, unknown> | null)) {
       const updateData = buildUpdateData(extractedData!);
 
@@ -109,30 +102,27 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Persist all pending messages to the DB
       await prisma.message.createMany({
-        data: history.map((msg) => ({
+        data: updatedHistory.map((msg) => ({
           leadId: lead.id,
           role: msg.role,
           content: msg.content,
         })),
       });
 
-      // Clean up memory
-      pendingConversations.delete(sid);
-
       return NextResponse.json({
         leadId: lead.id,
         message: reply,
         extractedData,
+        pendingHistory: null,
       });
     }
 
-    // Not enough data yet — respond without creating a lead
     return NextResponse.json({
       leadId: null,
       message: reply,
       extractedData,
+      pendingHistory: updatedHistory,
     });
   } catch (error) {
     console.error("Chat error:", error);
@@ -147,7 +137,6 @@ function toNumber(val: unknown): number | null {
   if (val == null) return null;
   if (typeof val === "number") return isNaN(val) ? null : val;
   if (typeof val === "string") {
-    // Strip currency symbols, commas, spaces: "₹2,000/month" → "2000"
     const cleaned = val.replace(/[₹$,\s]/g, "").replace(/\/(month|year|yr|mo).*$/i, "");
     const num = parseFloat(cleaned);
     return isNaN(num) ? null : num;

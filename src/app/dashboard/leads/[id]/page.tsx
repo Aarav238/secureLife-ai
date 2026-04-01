@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { clearChatIfMatchesLead } from "@/lib/chat-storage";
 
 interface LeadDetail {
   id: string;
@@ -525,6 +526,7 @@ export default function LeadDetailPage({
     try {
       const res = await fetch(`/api/leads/${id}`, { method: "DELETE" });
       if (res.ok) {
+        clearChatIfMatchesLead(id);
         router.push("/dashboard");
       }
     } catch (err) {
@@ -884,7 +886,14 @@ export default function LeadDetailPage({
                     variant="outline"
                     className="w-full justify-start gap-2.5 shadow-sm cursor-pointer"
                     size="sm"
-                    onClick={() => documentUploadRef.current?.openUploadDialog()}
+                    onClick={() => {
+                      if (activeTab !== "documents") {
+                        setActiveTab("documents");
+                        setTimeout(() => documentUploadRef.current?.openUploadDialog(), 50);
+                      } else {
+                        documentUploadRef.current?.openUploadDialog();
+                      }
+                    }}
                   >
                     <IconUpload className="w-4 h-4" />
                     Upload Document

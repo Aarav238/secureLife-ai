@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "./StatusBadge";
+import { clearChatIfMatchesLead } from "@/lib/chat-storage";
 import Link from "next/link";
 
 interface LeadCardProps {
@@ -45,7 +46,10 @@ export function LeadCard({ lead }: LeadCardProps) {
             e.stopPropagation();
             if (!confirm("Are you sure you want to delete this lead?")) return;
             fetch(`/api/leads/${lead.id}`, { method: "DELETE" }).then((res) => {
-              if (res.ok) window.location.reload();
+              if (res.ok) {
+                clearChatIfMatchesLead(lead.id);
+                window.location.reload();
+              }
             });
           }}
           className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center
