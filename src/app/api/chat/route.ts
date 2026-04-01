@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getChatResponse } from "@/lib/ai/chatbot";
+import type { LeadState } from "@/lib/ai/chatbot";
 import type { ExtractedLeadData } from "@/types";
 import type { LeadStatus } from "@prisma/client";
 
@@ -35,9 +36,23 @@ export async function POST(req: NextRequest) {
         content: msg.content,
       }));
 
+      const leadState: LeadState = {
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        age: lead.age,
+        city: lead.city,
+        occupation: lead.occupation,
+        primaryInterest: lead.primaryInterest,
+        existingPolicies: lead.existingPolicies,
+        monthlyBudget: lead.monthlyBudget,
+        urgency: lead.urgency,
+      };
+
       const { reply, extractedData } = await getChatResponse(
         conversationHistory,
-        message
+        message,
+        leadState
       );
 
       await prisma.message.createMany({

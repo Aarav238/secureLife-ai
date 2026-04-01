@@ -12,6 +12,10 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
 interface Document {
   id: string;
   fileName: string;
@@ -31,9 +35,13 @@ interface DocumentUploadProps {
   onUpload: () => void;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Status config                                                      */
+/* ------------------------------------------------------------------ */
+
 const statusConfig: Record<
   string,
-  { label: string; dotColor: string; textColor: string; bgColor: string; borderColor: string; icon: string }
+  { label: string; dotColor: string; textColor: string; bgColor: string; borderColor: string }
 > = {
   pending: {
     label: "Pending",
@@ -41,7 +49,6 @@ const statusConfig: Record<
     textColor: "text-amber-700",
     bgColor: "bg-amber-50",
     borderColor: "border-amber-200/60",
-    icon: "clock",
   },
   processing: {
     label: "Processing",
@@ -49,7 +56,6 @@ const statusConfig: Record<
     textColor: "text-blue-700",
     bgColor: "bg-blue-50",
     borderColor: "border-blue-200/60",
-    icon: "spinner",
   },
   completed: {
     label: "Completed",
@@ -57,7 +63,6 @@ const statusConfig: Record<
     textColor: "text-emerald-700",
     bgColor: "bg-emerald-50",
     borderColor: "border-emerald-200/60",
-    icon: "check",
   },
   failed: {
     label: "Failed",
@@ -65,9 +70,12 @@ const statusConfig: Record<
     textColor: "text-red-700",
     bgColor: "bg-red-50",
     borderColor: "border-red-200/60",
-    icon: "x",
   },
 };
+
+/* ------------------------------------------------------------------ */
+/*  Small presentational components                                    */
+/* ------------------------------------------------------------------ */
 
 function FileTypeIcon({ fileName, className = "w-10 h-10" }: { fileName: string; className?: string }) {
   const ext = fileName.split(".").pop()?.toLowerCase() || "";
@@ -116,6 +124,166 @@ function ExtractedField({ label, value, icon }: { label: string; value: string; 
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Extraction Detail Dialog                                           */
+/* ------------------------------------------------------------------ */
+
+const DETAIL_FIELDS: { key: string; label: string; format?: "currency" | "type" }[] = [
+  { key: "insuredName", label: "Policy Holder" },
+  { key: "provider", label: "Provider" },
+  { key: "policyNumber", label: "Policy Number" },
+  { key: "policyType", label: "Policy Type" },
+  { key: "documentType", label: "Document Type", format: "type" },
+  { key: "coverageAmount", label: "Coverage Amount", format: "currency" },
+  { key: "premiumAmount", label: "Premium Amount", format: "currency" },
+  { key: "premiumFrequency", label: "Premium Frequency" },
+  { key: "deductible", label: "Deductible", format: "currency" },
+  { key: "startDate", label: "Start Date" },
+  { key: "endDate", label: "End Date" },
+  { key: "renewalDate", label: "Renewal Date" },
+];
+
+const LIST_FIELDS: { key: string; label: string; color: string }[] = [
+  { key: "benefits", label: "Benefits & Coverages", color: "emerald" },
+  { key: "exclusions", label: "Exclusions", color: "red" },
+  { key: "nominees", label: "Nominees", color: "indigo" },
+];
+
+function formatFieldValue(val: unknown, format?: "currency" | "type"): string {
+  if (val == null || val === "") return "";
+  if (format === "currency") {
+    return Number(val).toLocaleString("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    });
+  }
+  if (format === "type") return String(val).replace(/_/g, " ");
+  return String(val);
+}
+
+function ExtractionDetailDialog({ doc, onClose }: { doc: Document | null; onClose: () => void }) {
+  if (!doc) return null;
+  const data = (doc.extractedData || {}) as Record<string, unknown>;
+
+  const visibleFields = DETAIL_FIELDS.filter(
+    (f) => data[f.key] != null && data[f.key] !== ""
+  );
+
+  const visibleLists = LIST_FIELDS.filter(
+    (f) => Array.isArray(data[f.key]) && (data[f.key] as unknown[]).length > 0
+  );
+
+  const notes = data.additionalNotes ? String(data.additionalNotes) : null;
+
+  return (
+    <Dialog open={!!doc} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        {/* Header with file icon */}
+        <DialogHeader>
+          <DialogTitle className="font-heading">
+            <div className="flex items-center gap-3">
+              <FileTypeIcon fileName={doc.fileName} className="w-10 h-12" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base">{doc.fileName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {doc.documentType && (
+                    <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 tracking-wide uppercase">
+                      {doc.documentType.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold inline-flex items-center gap-1.5 rounded-md text-emerald-700 border-emerald-200/60 bg-emerald-50"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Extracted
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Scrollable content */}
+        <div className="mt-2 max-h-[60vh] overflow-y-auto -mx-4 px-4 space-y-5">
+          {/* Key-value fields */}
+          {visibleFields.length > 0 && (
+            <div className="rounded-lg border border-slate-100 bg-slate-50/50 overflow-hidden">
+              {visibleFields.map((field, i) => {
+                const val = formatFieldValue(data[field.key], field.format);
+                const isMoney = field.format === "currency";
+                return (
+                  <div
+                    key={field.key}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-2.5",
+                      i < visibleFields.length - 1 && "border-b border-slate-100"
+                    )}
+                  >
+                    <span className="text-xs font-medium text-slate-500">{field.label}</span>
+                    <span className={cn(
+                      "text-sm font-semibold text-right ml-4 truncate max-w-[55%]",
+                      isMoney ? "text-indigo-700 tabular-nums" : "text-slate-800"
+                    )}>
+                      {val}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* List fields: benefits, exclusions, nominees */}
+          {visibleLists.map((field) => {
+            const arr = data[field.key] as string[];
+            const colorMap: Record<string, { bg: string; dot: string; text: string; border: string }> = {
+              emerald: { bg: "bg-emerald-50/60", dot: "bg-emerald-400", text: "text-emerald-800", border: "border-emerald-100" },
+              red: { bg: "bg-red-50/60", dot: "bg-red-400", text: "text-red-800", border: "border-red-100" },
+              indigo: { bg: "bg-indigo-50/60", dot: "bg-indigo-400", text: "text-indigo-800", border: "border-indigo-100" },
+            };
+            const c = colorMap[field.color] || colorMap.indigo;
+            return (
+              <div key={field.key}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={cn("w-1 h-4 rounded-full", c.dot)} />
+                  <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{field.label}</h4>
+                  <span className="text-[10px] text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5 font-medium">{arr.length}</span>
+                </div>
+                <div className={cn("rounded-lg border p-3 space-y-2", c.bg, c.border)}>
+                  {arr.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className={cn("mt-1.5 w-1.5 h-1.5 rounded-full shrink-0", c.dot)} />
+                      <p className={cn("text-sm leading-relaxed", c.text)}>{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Additional notes */}
+          {notes && (
+            <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3.5">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-3.5 h-3.5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+                <h4 className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Additional Notes</h4>
+              </div>
+              <p className="text-sm text-amber-900 leading-relaxed">{notes}</p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main component                                                     */
+/* ------------------------------------------------------------------ */
+
 export interface DocumentUploadHandle {
   openUploadDialog: () => void;
 }
@@ -129,6 +297,7 @@ export const DocumentUpload = forwardRef<DocumentUploadHandle, DocumentUploadPro
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extracting, setExtracting] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailDoc, setDetailDoc] = useState<Document | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -145,7 +314,6 @@ export const DocumentUpload = forwardRef<DocumentUploadHandle, DocumentUploadPro
     setDragOver(false);
   };
 
-  // Simulate progress during upload
   useEffect(() => {
     if (!uploading) return;
     setUploadProgress(0);
@@ -394,6 +562,9 @@ export const DocumentUpload = forwardRef<DocumentUploadHandle, DocumentUploadPro
         </DialogContent>
       </Dialog>
 
+      {/* ── Extraction Detail Dialog ──────────────────────────── */}
+      <ExtractionDetailDialog doc={detailDoc} onClose={() => setDetailDoc(null)} />
+
       {/* ── Document list ─────────────────────────────────────── */}
       <div className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
         {documents.length === 0 ? (
@@ -464,7 +635,6 @@ export const DocumentUpload = forwardRef<DocumentUploadHandle, DocumentUploadPro
                         </Badge>
                       </div>
 
-                      {/* Document type tag */}
                       {doc.documentType && (
                         <span className="inline-flex items-center mt-1.5 rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 tracking-wide">
                           {doc.documentType.replace(/_/g, " ")}
@@ -501,7 +671,7 @@ export const DocumentUpload = forwardRef<DocumentUploadHandle, DocumentUploadPro
                     </div>
                   )}
 
-                  {/* Completed → Extracted data card */}
+                  {/* Completed → Extracted data summary + view all */}
                   {isCompleted && doc.extractedData && (
                     <div className="mt-3 ml-12 rounded-lg bg-slate-50/80 border border-slate-100 p-3">
                       <div className="grid grid-cols-2 gap-x-6 gap-y-0.5">
@@ -569,6 +739,19 @@ export const DocumentUpload = forwardRef<DocumentUploadHandle, DocumentUploadPro
                           />
                         )}
                       </div>
+
+                      {/* View all extracted data link */}
+                      <button
+                        type="button"
+                        onClick={() => setDetailDoc(doc)}
+                        className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        View all extracted data
+                      </button>
                     </div>
                   )}
 
