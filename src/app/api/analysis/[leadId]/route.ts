@@ -29,8 +29,8 @@ export async function POST(
     };
 
     const documentsData = lead.documents
-      .filter((d) => d.processingStatus === "completed")
-      .map((d) => ({
+      .filter((d: { processingStatus: string }) => d.processingStatus === "completed")
+      .map((d: Record<string, unknown>) => ({
         documentType: d.documentType,
         provider: d.provider,
         policyType: d.policyType,

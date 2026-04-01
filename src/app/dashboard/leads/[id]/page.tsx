@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { DocumentUpload } from "@/components/dashboard/DocumentUpload";
+import { DocumentUpload, type DocumentUploadHandle } from "@/components/dashboard/DocumentUpload";
 import { AnalysisPanel } from "@/components/dashboard/AnalysisPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,6 +52,7 @@ interface LeadDetail {
     coverageAmount: number | null;
     premiumAmount: number | null;
     policyNumber: string | null;
+    insuredName: string | null;
     extractedData: Record<string, unknown> | null;
   }>;
   analysis: {
@@ -410,13 +411,13 @@ function InfoField({
   value: string | number | null | undefined;
 }) {
   return (
-    <div className="flex items-start gap-3 py-3">
-      <div className="mt-0.5 text-slate-400">{icon}</div>
-      <div className="min-w-0">
+    <div className="flex items-start gap-3 py-3 overflow-hidden">
+      <div className="mt-0.5 text-slate-400 shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
         <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-medium text-slate-800">
+        <p className="mt-0.5 text-sm font-medium text-slate-800 break-all">
           {value != null && value !== "" ? String(value) : (
             <span className="text-slate-400 font-normal">&mdash;</span>
           )}
@@ -497,6 +498,8 @@ export default function LeadDetailPage({
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState("conversation");
+  const documentUploadRef = useRef<DocumentUploadHandle>(null);
   const router = useRouter();
 
   const fetchLead = async () => {
@@ -684,7 +687,7 @@ export default function LeadDetailPage({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-x-8 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     <InfoField
                       icon={<IconMail className="w-4 h-4" />}
                       label="Email"
@@ -748,7 +751,7 @@ export default function LeadDetailPage({
               </Card>
 
               {/* Tabs */}
-              <Tabs defaultValue="conversation">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="bg-white border border-slate-200/80 shadow-sm">
                   <TabsTrigger
                     value="conversation"
@@ -837,6 +840,7 @@ export default function LeadDetailPage({
                 {/* Documents tab */}
                 <TabsContent value="documents" className="mt-4">
                   <DocumentUpload
+                    ref={documentUploadRef}
                     leadId={lead.id}
                     documents={lead.documents}
                     onUpload={fetchLead}
@@ -880,15 +884,7 @@ export default function LeadDetailPage({
                     variant="outline"
                     className="w-full justify-start gap-2.5 shadow-sm cursor-pointer"
                     size="sm"
-                    onClick={() => {
-                      const tabEl = document.querySelector(
-                        '[data-state][value="documents"]'
-                      ) as HTMLElement | null;
-                      tabEl?.click();
-                      document
-                        .querySelector('[value="documents"]')
-                        ?.scrollIntoView({ behavior: "smooth" });
-                    }}
+                    onClick={() => documentUploadRef.current?.openUploadDialog()}
                   >
                     <IconUpload className="w-4 h-4" />
                     Upload Document

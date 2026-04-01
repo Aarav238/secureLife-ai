@@ -128,26 +128,44 @@ export async function POST(req: NextRequest) {
   }
 }
 
+function toNumber(val: unknown): number | null {
+  if (val == null) return null;
+  if (typeof val === "number") return isNaN(val) ? null : val;
+  if (typeof val === "string") {
+    // Strip currency symbols, commas, spaces: "₹2,000/month" → "2000"
+    const cleaned = val.replace(/[₹$,\s]/g, "").replace(/\/(month|year|yr|mo).*$/i, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  return null;
+}
+
+function toInt(val: unknown): number | null {
+  const num = toNumber(val);
+  return num != null ? Math.round(num) : null;
+}
+
 function buildUpdateData(
   extractedData: ExtractedLeadData
 ): Record<string, unknown> {
   const updateData: Record<string, unknown> = {};
-  if (extractedData.name) updateData.name = extractedData.name;
-  if (extractedData.email) updateData.email = extractedData.email;
-  if (extractedData.phone) updateData.phone = extractedData.phone;
-  if (extractedData.age) updateData.age = extractedData.age;
-  if (extractedData.city) updateData.city = extractedData.city;
+  if (extractedData.name) updateData.name = String(extractedData.name);
+  if (extractedData.email) updateData.email = String(extractedData.email);
+  if (extractedData.phone) updateData.phone = String(extractedData.phone);
+  const age = toInt(extractedData.age);
+  if (age != null) updateData.age = age;
+  if (extractedData.city) updateData.city = String(extractedData.city);
   if (extractedData.occupation)
-    updateData.occupation = extractedData.occupation;
+    updateData.occupation = String(extractedData.occupation);
   if (extractedData.primaryInterest)
-    updateData.primaryInterest = extractedData.primaryInterest;
-  if (extractedData.existingPolicies != null)
-    updateData.existingPolicies = extractedData.existingPolicies;
-  if (extractedData.monthlyBudget != null)
-    updateData.monthlyBudget = extractedData.monthlyBudget;
-  if (extractedData.urgency) updateData.urgency = extractedData.urgency;
-  if (extractedData.qualificationScore != null)
-    updateData.qualificationScore = extractedData.qualificationScore;
+    updateData.primaryInterest = String(extractedData.primaryInterest);
+  const existingPolicies = toInt(extractedData.existingPolicies);
+  if (existingPolicies != null) updateData.existingPolicies = existingPolicies;
+  const monthlyBudget = toNumber(extractedData.monthlyBudget);
+  if (monthlyBudget != null) updateData.monthlyBudget = monthlyBudget;
+  if (extractedData.urgency) updateData.urgency = String(extractedData.urgency);
+  const score = toInt(extractedData.qualificationScore);
+  if (score != null) updateData.qualificationScore = score;
   if (extractedData.statusUpdate)
     updateData.status = extractedData.statusUpdate as LeadStatus;
   return updateData;

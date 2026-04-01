@@ -84,6 +84,7 @@ model Document {
   extractedData    Json?
   documentType     DocumentType?
 
+  insuredName      String?
   policyNumber     String?
   provider         String?
   policyType       String?
@@ -95,6 +96,7 @@ model Document {
   renewalDate      DateTime?
   exclusions       Json?
   benefits         Json?
+  nominees         Json?
 
   processingStatus String        @default("pending")
   processingError  String?
