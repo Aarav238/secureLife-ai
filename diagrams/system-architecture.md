@@ -8,6 +8,7 @@ graph TB
         direction LR
         LP["Landing Page<br/><code>/</code>"]
         CH["AI Chatbot<br/><code>/chat</code>"]
+        LG["Login / Signup<br/><code>/login</code>"]
         DB["Dashboard<br/><code>/dashboard</code>"]
         LD["Lead Detail<br/><code>/dashboard/leads/[id]</code>"]
         LT["Leads Table<br/><code>/dashboard/leads</code>"]
@@ -15,6 +16,12 @@ graph TB
     end
 
     subgraph Server["⚙️ Next.js 16 App Router — Vercel"]
+
+        subgraph Auth["🔒 Auth & Route Guard"]
+            direction LR
+            Proxy["<b>proxy.ts</b><br/>Route protection layer"]
+            SupaAuth["<b>Supabase Auth</b><br/>@supabase/ssr<br/>Cookie-based sessions"]
+        end
 
         subgraph API["API Routes"]
             direction LR
@@ -42,25 +49,27 @@ graph TB
         direction LR
         OpenAI["<b>OpenAI API</b><br/>GPT-4.1<br/>All LLM inference"]
         Supabase["<b>Supabase</b><br/>PostgreSQL<br/>Session pooler"]
-        FileStore["<b>Local Storage</b><br/>/uploads/<br/>PDF files (MVP)"]
+        SupaStore["<b>Supabase Storage</b><br/>documents bucket<br/>PDF files"]
+        SupaAuthSvc["<b>Supabase Auth</b><br/>Auth service<br/>User management"]
     end
 
-    %% Frontend → API
+    %% Auth flow
+    LG -->|"login/signup"| SupaAuth
+    SupaAuth -->|"verify session"| SupaAuthSvc
+    DB & LT & LD & DT -->|"all requests"| Proxy
+    Proxy -->|"authenticated"| API
+    Proxy -->|"unauthenticated"| LG
+
+    %% Frontend → API (public)
     CH -->|"send message<br/>receive AI reply"| ChatAPI
-    DB -->|"fetch all leads"| LeadsAPI
-    LD -->|"fetch/update/delete lead"| LeadsAPI
-    LD -->|"upload PDF<br/>trigger extraction"| DocsAPI
-    LD -->|"generate analysis"| AnalysisAPI
-    LT -->|"fetch + filter leads"| LeadsAPI
-    DT -->|"fetch all documents"| DocsAPI
 
     %% API → AI
-    ChatAPI -->|"conversation history<br/>+ user message"| Chatbot
+    ChatAPI -->|"conversation history<br/>+ lead state + message"| Chatbot
     DocsAPI -->|"raw PDF text"| Extractor
     AnalysisAPI -->|"lead profile<br/>+ extracted docs"| Analyzer
 
     %% AI → OpenAI
-    Chatbot -->|"chat.completions.create"| OpenAI
+    Chatbot -->|"chat.completions.create<br/>JSON response format"| OpenAI
     Extractor -->|"chat.completions.create"| OpenAI
     Analyzer -->|"chat.completions.create"| OpenAI
 
@@ -73,20 +82,22 @@ graph TB
 
     %% Data → External
     PrismaClient -->|"session pooler<br/>port 5432"| Supabase
-    DocsAPI -->|"save uploaded PDF"| FileStore
-    PDFParser -->|"read PDF buffer"| FileStore
+    DocsAPI -->|"upload PDF"| SupaStore
+    PDFParser -->|"fetch PDF"| SupaStore
 
     %% Styling
     classDef frontend fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#1e1b4b
+    classDef authStyle fill:#fce7f3,stroke:#ec4899,stroke-width:2px,color:#831843
     classDef api fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
     classDef ai fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
-    classDef external fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    classDef external fill:#e0f2fe,stroke:#0ea5e9,stroke-width:2px,color:#0c4a6e
     classDef util fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1e293b
 
-    class LP,CH,DB,LD,LT,DT frontend
+    class LP,CH,LG,DB,LD,LT,DT frontend
+    class Proxy,SupaAuth authStyle
     class ChatAPI,LeadsAPI,DocsAPI,AnalysisAPI api
     class Chatbot,Extractor,Analyzer ai
-    class OpenAI,Supabase,FileStore external
+    class OpenAI,Supabase,SupaStore,SupaAuthSvc external
     class PDFParser,PrismaClient util
 ```
 
@@ -97,13 +108,13 @@ flowchart LR
     subgraph Inputs["Inputs"]
         User["👤 Prospective Client<br/>Chats via /chat"]
         Broker["🧑‍💼 Insurance Broker<br/>Uses /dashboard"]
-        PDF["📄 Policy PDFs<br/>Uploaded by broker"]
+        PDF["📄 Policy PDFs<br/>Uploaded to Supabase Storage"]
     end
 
     subgraph Processing["AI Processing"]
-        Qualify["🤖 Chatbot Agent<br/>Qualifies lead in 2-3 exchanges<br/>Extracts name, contact, interest, budget"]
-        Extract["🤖 Extractor Agent<br/>Parses policy documents<br/>Returns structured fields"]
-        Analyze["🤖 Analyzer Agent<br/>Cross-references all data<br/>Finds gaps & savings"]
+        Qualify["🤖 Chatbot Agent<br/>Qualifies lead in 2-4 exchanges<br/>Tracks 10 required fields<br/>JSON response format"]
+        Extract["🤖 Extractor Agent<br/>Parses 14+ policy fields<br/>Benefits, exclusions, nominees"]
+        Analyze["🤖 Analyzer Agent<br/>5-dimension analysis<br/>Gaps, savings, risks,<br/>recommendations, score"]
     end
 
     subgraph Outputs["Outputs"]
@@ -133,21 +144,26 @@ flowchart LR
 
 | Layer | Component | Responsibility |
 |---|---|---|
-| **Frontend** | Landing Page (`/`) | Marketing, feature showcase, onboarding CTAs |
-| **Frontend** | AI Chatbot (`/chat`) | Real-time conversation with lead, chat history sidebar, session persistence |
+| **Frontend** | Landing Page (`/`) | Feature showcase, animated hero, workflow steps, auth-aware CTAs |
+| **Frontend** | AI Chatbot (`/chat`) | Conversational lead qualification, chat history sidebar, session persistence |
+| **Frontend** | Login / Signup (`/login`) | Broker authentication via Supabase Auth (email/password) |
 | **Frontend** | Dashboard (`/dashboard`) | Pipeline kanban board, stats cards (total, qualified, won, avg score) |
-| **Frontend** | Lead Detail (`/dashboard/leads/[id]`) | Full lead view with tabs: info, conversation, documents, analysis |
-| **Frontend** | Leads Table (`/dashboard/leads`) | Searchable, filterable list of all leads |
-| **Frontend** | Documents Table (`/dashboard/documents`) | All uploaded documents across leads with status |
-| **API** | Chat Routes | Message handling, deferred lead creation, session memory, conversation persistence |
+| **Frontend** | Lead Detail (`/dashboard/leads/[id]`) | Tabbed view: overview, conversation, documents, analysis |
+| **Frontend** | Leads Table (`/dashboard/leads`) | Searchable, filterable list of all leads with status badges |
+| **Frontend** | Documents Table (`/dashboard/documents`) | All uploaded documents across leads with extraction status |
+| **Auth** | `proxy.ts` | Next.js 16 route guard — protects `/dashboard/*` and sensitive APIs |
+| **Auth** | Supabase Auth (`@supabase/ssr`) | Cookie-based session management, server/client helpers |
+| **API** | Chat Routes | Message handling, lead state injection, deferred lead creation, stateless pending history |
 | **API** | Lead Routes | Full CRUD operations on leads with cascade delete |
-| **API** | Document Routes | PDF upload to local storage, AI extraction trigger with retry |
+| **API** | Document Routes | PDF upload to Supabase Storage, AI extraction trigger |
 | **API** | Analysis Routes | AI analysis generation/regeneration, upsert to DB |
-| **AI** | Chatbot Agent | Conversational lead qualification + structured data extraction via `<extracted_data>` blocks |
-| **AI** | Extractor Agent | PDF raw text → structured policy JSON (policy #, provider, coverage, premium, dates, exclusions, benefits) |
-| **AI** | Analyzer Agent | Lead profile + all documents → coverage gaps, savings, risk flags, recommendations, overall score |
+| **API** | Auth Routes | Logout endpoint (`POST /api/auth/logout`) |
+| **AI** | Chatbot Agent | Lead qualification + JSON data extraction (`response_format: json_object`), 10 required fields tracked |
+| **AI** | Extractor Agent | PDF raw text → structured policy JSON (14+ fields: policy details, benefits, exclusions, nominees) |
+| **AI** | Analyzer Agent | Lead profile + all documents → 5-dimension analysis: gaps, savings, risks, recommendations, score |
 | **Data** | Prisma v7 + pg adapter | Type-safe PostgreSQL access via Supabase session pooler |
-| **Data** | pdf-parse v2 | PDF binary → raw text extraction |
+| **Data** | pdf-parse v2 | PDF binary → raw text extraction (`Uint8Array` input) |
 | **External** | OpenAI GPT-4.1 | All LLM inference (chatbot, extraction, analysis) |
 | **External** | Supabase PostgreSQL | Persistent storage for leads, messages, documents, analyses |
-| **External** | Local /uploads/ | PDF file storage (MVP; production would use Supabase Storage) |
+| **External** | Supabase Storage | PDF document storage (`documents` bucket) |
+| **External** | Supabase Auth Service | User management, session verification |
