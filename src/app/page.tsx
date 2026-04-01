@@ -53,10 +53,10 @@ export default function Home() {
               AI Chat
             </Link>
             <Link
-              href="/dashboard"
+              href="/login"
               className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25"
             >
-              Dashboard
+              Broker Login
             </Link>
           </div>
         </div>
